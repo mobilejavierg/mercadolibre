@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 )
 
 func GetCategories() []Categories {
@@ -77,8 +78,9 @@ func GetArticles(categoriesId string, datos *Search, offset int) {
 
 func AsyncGetArticles(wg *sync.WaitGroup, categoriesId string, datos chan Search, offset int, sortId string) {
 
-	defer wg.Done()
-
+	if wg != nil {
+		defer wg.Done()
+	}
 	//price_asc, price_desc
 	_url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&limit=200&offset=%d&sort=%s", categoriesId, offset, sortId)
 
@@ -162,4 +164,77 @@ func GetSampleLen(population int) int {
 
 	return int(n)
 
+}
+func Analize_data(categoriesId string) (_respuesta ResponseAPI) {
+
+	var wg sync.WaitGroup
+	var done bool
+	var globalDatos Search
+	arDatos1 := make(chan Search)
+
+	//total de datos
+	total := GetPopulation(categoriesId)
+	//calcular el tamaño del muestro
+	total = GetSampleLen(total)
+	//dividir por el offset maximo de 200
+	total = total / 200
+	done = false
+
+	//con este GET obtengo el muestreo con los precios mas altos
+	order := "price_desc"
+	var offsetAcum int = 0
+	wg.Add(1)
+	go AsyncGetArticles(&wg, categoriesId, arDatos1, offsetAcum, order)
+	//****************************
+
+	//empiezo e loop para procesar el resto de las muestras
+	//inicio con price_asc para tener los precios minimos
+	order = "price_asc"
+	for i := 0; i <= total; i++ {
+
+		wg.Add(1)
+		if i > (total / 2) {
+			order = "price_desc"
+		}
+
+		go AsyncGetArticles(&wg, categoriesId, arDatos1, offsetAcum, order)
+		offsetAcum += 200
+
+		//fmt.Println(i, " de ", total)
+
+	}
+	go monitorDonde(&wg, &done)
+
+	for !done {
+
+		tmpDatos := <-arDatos1
+		globalDatos.Resultados = append(globalDatos.Resultados, tmpDatos.Resultados...)
+		time.Sleep(time.Millisecond * 1)
+		//		fmt.Printf(" max: %.2f \n", maxPrice)
+
+	}
+
+	//debido a que el API de MELI no garantiza el resultado esperado por cada GET, tengo que validar el maximo
+	//ejemplo solicito 1 articulo con sortid: price_desc,el mismo get me devuelve 11111111 o 30
+	/*	if maxPrice < globalDatos.Resultados[len(globalDatos.Resultados)-1].Price {
+			maxPrice = globalDatos.Resultados[len(globalDatos.Resultados)-1].Price
+		}
+	*/
+	_max, _min, _mediana := GetEstadistics(globalDatos)
+
+	_respuesta.Max = _max
+	_respuesta.Min = _min
+	_respuesta.Seggested = _mediana
+
+	//	fmt.Printf("maxPrice: %.2f \n", maxPrice)
+	fmt.Printf("max: %.2f \n", _max)
+	fmt.Printf("min: %.2f \n", _min)
+	fmt.Printf("mediana: %.2f \n", _mediana)
+
+	return
+}
+
+func monitorDonde(wg *sync.WaitGroup, done *bool) {
+	wg.Wait()
+	*done = true
 }
