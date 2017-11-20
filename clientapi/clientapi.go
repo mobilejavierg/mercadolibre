@@ -73,18 +73,16 @@ func GetArticles(categoriesId string, datos *Search, offset int) {
 	offset += 200
 	fmt.Println(len(datos.Resultados))
 
-	//	go GetArticles(categoriesId, datos, offset)
-
 }
 
 func AsyncGetArticles(wg *sync.WaitGroup, categoriesId string, datos chan Search, offset int, sortId string) {
 
 	defer wg.Done()
-	//price_desc
+
 	//price_asc, price_desc
 	_url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&limit=200&offset=%d&sort=%s", categoriesId, offset, sortId)
 
-	//	fmt.Println(_url)
+	//fmt.Println(_url)
 	response, err := http.Get(_url)
 	if err != nil {
 		fmt.Print(err.Error())
@@ -100,34 +98,21 @@ func AsyncGetArticles(wg *sync.WaitGroup, categoriesId string, datos chan Search
 
 	json.Unmarshal(responseData, &tmpDatos)
 	totalDatos := tmpDatos.Paginado.Total
-
-	//	gloalDatos := <-datos
-
-	/*	if gloalDatos == nil {
-		gloalDatos = tmpDatos
-	}*/
-
-	//	gloalDatos.Resultados = append(gloalDatos.Resultados, tmpDatos.Resultados...)
 
 	if offset > totalDatos {
 		return
 	}
 
-	//	offset += 200
-	//	fmt.Println(len(gloalDatos.Resultados))
-
 	datos <- tmpDatos
-	//	go GetArticles(categoriesId, datos, offset)
-	//	defer wg.Done()
 
 }
 
-func GetPopulation(categoriesId string) (int, float64) {
+func GetPopulation(categoriesId string) int {
 
 	//	_url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&sort=price_asc&limit=1", categoriesId)
 	_url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&sort=price_desc&limit=1", categoriesId)
 
-	fmt.Println(_url)
+	//	fmt.Println(_url)
 
 	response, err := http.Get(_url)
 	if err != nil {
@@ -145,13 +130,7 @@ func GetPopulation(categoriesId string) (int, float64) {
 	json.Unmarshal(responseData, &tmpDatos)
 
 	totalDatos := tmpDatos.Paginado.Total
-	/*	total = totalDatos
-		maxPrice = tmpDatos.Resultados[0].Price*/
-
-	/*	mapB, _ := json.Marshal(tmpDatos)
-		fmt.Println(string(mapB))*/
-
-	return totalDatos, tmpDatos.Resultados[0].Price
+	return totalDatos
 
 }
 

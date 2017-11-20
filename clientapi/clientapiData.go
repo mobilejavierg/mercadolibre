@@ -56,10 +56,26 @@ func GetEstadistics(result Search) (max float64, min float64, mediada float64) {
 	var _acum float64
 
 	_Min = result.Resultados[0].Price
-	_Max = result.Resultados[len(result.Resultados)-1].Price
+	_Max = result.Resultados[0].Price
+	//_Max = result.Resultados[len(result.Resultados)-1].Price
 
 	for i := 0; i <= len(result.Resultados)-1; i++ {
-		_acum += result.Resultados[i].Price
+
+		// tomo las muestras como valida, si vendieron aunque sea un articulo
+		// ya que hay publicaciones con valores irrales, por ejemplo: 111111111.11, o 123456789.00
+		if result.Resultados[i].Sold_quantity > 0 {
+			_acum += result.Resultados[i].Price
+
+			if _Min > result.Resultados[i].Price {
+				_Min = result.Resultados[i].Price
+			}
+
+			if _Max < result.Resultados[i].Price {
+				_Max = result.Resultados[i].Price
+			}
+
+		}
+
 	}
 
 	_Media = _acum / float64(len(result.Resultados))
