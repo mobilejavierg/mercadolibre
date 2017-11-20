@@ -4,6 +4,12 @@ import (
 	"sort"
 )
 
+type ResponseAPI struct {
+	Max       float64 `json:"max"`
+	Seggested float64 `json:"suggested"`
+	Min       float64 `json:"min"`
+}
+
 type Categories struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`

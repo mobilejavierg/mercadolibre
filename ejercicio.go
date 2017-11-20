@@ -12,15 +12,35 @@ import (
 
 func main() {
 
-	//var datos clientApi.Search
+	r := gin.Default()
+	v1 := r.Group("/categories")
+	{
+		v1.GET("/:id/prices", getPrices)
+	}
+
+	r.Run(":8080")
+
+}
+
+func getPrices(c *gin.Context) {
+
+	id := c.Params.ByName("id")
+	resp := analize_data(id)
+	c.JSON(200, resp)
+
+	//clientApi.ProcessListArt()
+
+}
+
+func analize_data(categoriesId string) (_respuesta clientApi.ResponseAPI) {
+
 	var wg sync.WaitGroup
 	var done bool
-	var globalDatos clientApi.Search
 	var offsetAcum int = 0
-
+	var globalDatos clientApi.Search
 	arDatos1 := make(chan clientApi.Search)
 
-	total, maxPrice := clientApi.GetPopulation("MLA1430")
+	total, maxPrice := clientApi.GetPopulation(categoriesId)
 
 	total = clientApi.GetSampleLen(total)
 	total = total / 200
@@ -63,11 +83,16 @@ func main() {
 	*/
 	_max, _min, _mediana := clientApi.GetEstadistics(globalDatos)
 
+	_respuesta.Max = maxPrice
+	_respuesta.Min = _min
+	_respuesta.Seggested = _mediana
+
 	fmt.Printf("maxPrice: %.2f \n", maxPrice)
 	fmt.Printf("max: %.2f \n", _max)
 	fmt.Printf("min: %.2f \n", _min)
 	fmt.Printf("mediana: %.2f \n", _mediana)
 
+	return
 	//wg.Wait()
 
 	/*
@@ -80,7 +105,7 @@ func main() {
 		r.Run(":8080")*/
 }
 
-func getPrices(c *gin.Context) {
+/*func getPrices(c *gin.Context) {
 
 	//id := c.Params.ByName("id")
 
@@ -90,7 +115,7 @@ func getPrices(c *gin.Context) {
 
 	clientApi.ProcessListArt()
 
-}
+}*/
 func monitorDonde(wg *sync.WaitGroup, done *bool) {
 
 	wg.Wait()

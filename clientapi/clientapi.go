@@ -77,17 +77,6 @@ func GetArticles(categoriesId string, datos *Search, offset int) {
 
 }
 
-func ProcessListArt() {
-
-	/*
-		defer func() {
-			contador := <-countGoRoutines
-			contador--
-			countGoRoutines <- contador
-		}()
-	*/
-}
-
 func AsyncGetArticles(wg *sync.WaitGroup, categoriesId string, datos chan Search, offset int, sortId string) {
 
 	defer wg.Done()
