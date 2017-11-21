@@ -15,7 +15,7 @@ func main() {
 		v1.GET("/:id/prices", getPrices)
 	}
 
-	r.Run(":8080")
+	r.Run(":80")
 	appengine.Main()
 }
 
