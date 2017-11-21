@@ -4,6 +4,7 @@ import (
 	"github.com/mobilejavierg/mercadolibre/clientapi"
 	//	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin"
+	"google.golang.org/appengine"
 )
 
 func main() {
@@ -15,7 +16,7 @@ func main() {
 	}
 
 	r.Run(":8080")
-
+	appengine.Main()
 }
 
 func getPrices(c *gin.Context) {
