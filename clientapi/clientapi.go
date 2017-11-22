@@ -9,6 +9,10 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	//googlecloud requiremt
+	"google.golang.org/appengine"
+	"google.golang.org/appengine/urlfetch"
 )
 
 func GetCategories() []Categories {
@@ -39,7 +43,7 @@ func GetCategories() []Categories {
 }
 
 //https://api.mercadolibre.com/sites/MLA/search?category=MLA5726&sort=price_asc
-func GetArticles(categoriesId string, datos *Search, offset int) {
+/*func GetArticles(categoriesId string, datos *Search, offset int) {
 
 	_url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&sort=price_asc&limit=200&offset=%d", categoriesId, offset)
 
@@ -74,18 +78,25 @@ func GetArticles(categoriesId string, datos *Search, offset int) {
 	offset += 200
 	fmt.Println(len(datos.Resultados))
 
-}
+}*/
 
-func AsyncGetArticles(wg *sync.WaitGroup, categoriesId string, datos chan Search, offset int, sortId string) {
+func AsyncGetArticles(wg *sync.WaitGroup, categoriesId string, datos chan Search, offset int, sortId string, req *http.Request) {
 
 	if wg != nil {
 		defer wg.Done()
 	}
-	//price_asc, price_desc
 	_url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&limit=200&offset=%d&sort=%s", categoriesId, offset, sortId)
+	///////////////////////////////////////////////////////
+	//appEgine adapter
 
-	//fmt.Println(_url)
-	response, err := http.Get(_url)
+	///	new parameter: req * http.Request
+
+	ctx := appengine.NewContext(req)
+	client := urlfetch.Client(ctx)
+	response, err := client.Get(_url)
+	/////////////////////////////////////////////////
+	//old line	response, err := http.Get(_url)
+
 	if err != nil {
 		fmt.Print(err.Error())
 		os.Exit(1)
@@ -109,14 +120,21 @@ func AsyncGetArticles(wg *sync.WaitGroup, categoriesId string, datos chan Search
 
 }
 
-func GetPopulation(categoriesId string) int {
+func GetPopulation(categoriesId string, req *http.Request) int {
 
-	//	_url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&sort=price_asc&limit=1", categoriesId)
 	_url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&sort=price_desc&limit=1", categoriesId)
 
-	//	fmt.Println(_url)
+	///////////////////////////////////////////////////////
+	//appEgine adapter
 
-	response, err := http.Get(_url)
+	///	new parameter: req * http.Request
+
+	ctx := appengine.NewContext(req)
+	client := urlfetch.Client(ctx)
+	response, err := client.Get(_url)
+	/////////////////////////////////////////////////
+	//old line:	response, err := http.Get(_url)
+
 	if err != nil {
 		fmt.Print(err.Error())
 		os.Exit(1)
@@ -165,7 +183,7 @@ func GetSampleLen(population int) int {
 	return int(n)
 
 }
-func Analize_data(categoriesId string) (_respuesta ResponseAPI) {
+func Analize_data(categoriesId string, req *http.Request) (_respuesta ResponseAPI) {
 
 	var wg sync.WaitGroup
 	var done bool
@@ -173,7 +191,7 @@ func Analize_data(categoriesId string) (_respuesta ResponseAPI) {
 	arDatos1 := make(chan Search)
 
 	//total de datos
-	total := GetPopulation(categoriesId)
+	total := GetPopulation(categoriesId, req)
 	//calcular el tamaño del muestro
 	total = GetSampleLen(total)
 	//dividir por el offset maximo de 200
@@ -184,7 +202,7 @@ func Analize_data(categoriesId string) (_respuesta ResponseAPI) {
 	order := "price_desc"
 	var offsetAcum int = 0
 	wg.Add(1)
-	go AsyncGetArticles(&wg, categoriesId, arDatos1, offsetAcum, order)
+	go AsyncGetArticles(&wg, categoriesId, arDatos1, offsetAcum, order, req)
 	//****************************
 
 	//empiezo e loop para procesar el resto de las muestras
@@ -197,7 +215,7 @@ func Analize_data(categoriesId string) (_respuesta ResponseAPI) {
 			order = "price_desc"
 		}
 
-		go AsyncGetArticles(&wg, categoriesId, arDatos1, offsetAcum, order)
+		go AsyncGetArticles(&wg, categoriesId, arDatos1, offsetAcum, order, req)
 		offsetAcum += 200
 
 		//fmt.Println(i, " de ", total)
@@ -238,3 +256,41 @@ func monitorDonde(wg *sync.WaitGroup, done *bool) {
 	wg.Wait()
 	*done = true
 }
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*
+func GetPopulation(categoriesId string, req *http.Request) int {
+
+	//      _url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&sort=price_asc&limit=1", categoriesId)
+	_url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&sort=price_desc&limit=1", categoriesId)
+
+	//      fmt.Println(_url)
+	ctx := appengine.NewContext(req)
+	client := urlfetch.Client(ctx)
+	response, err := client.Get(_url)
+
+	//      response, err := http.Get(_url)
+	if err != nil {
+		fmt.Print(err.Error())
+		os.Exit(1)
+	}
+
+	responseData, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var tmpDatos Search
+
+	json.Unmarshal(responseData, &tmpDatos)
+
+	totalDatos := tmpDatos.Paginado.Total
+	return totalDatos
+
+}
+*/
