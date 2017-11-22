@@ -1,260 +1,277 @@
 package clientApi
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"log"
-	"net/http"
-	"os"
-	"sync"
-	"time"
+    "encoding/json"
+    "fmt"
+    "io/ioutil"
+    "log"
+    "net/http"
+    "os"
+    "sync"
+    "time"
+    "math/big"
+    "strconv"
 
-	//googlecloud requiremt
-	"google.golang.org/appengine"
-	"google.golang.org/appengine/urlfetch"
+    //googlecloud requiremt
+    "golang.org/x/net/context"
+    "google.golang.org/appengine"
+    "google.golang.org/appengine/urlfetch"
 )
 
 func GetCategories() []Categories {
 
-	response, err := http.Get("https://api.mercadolibre.com/sites/MLA/categories")
+    response, err := http.Get("https://api.mercadolibre.com/sites/MLA/categories")
 
-	if err != nil {
-		fmt.Print(err.Error())
-		os.Exit(1)
-	}
+    if err != nil {
+	fmt.Print(err.Error())
+	os.Exit(1)
+    }
 
-	responseData, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
+    responseData, err := ioutil.ReadAll(response.Body)
+    if err != nil {
+	log.Fatal(err)
+    }
 
-	var categoriesObject []Categories
+    var categoriesObject []Categories
 
-	json.Unmarshal(responseData, &categoriesObject)
+    json.Unmarshal(responseData, &categoriesObject)
 
-	for i := 0; i < len(categoriesObject); i++ {
-		fmt.Println("id: " + categoriesObject[i].Id)
-		fmt.Println("nombre: " + categoriesObject[i].Name)
-	}
+    for i := 0; i < len(categoriesObject); i++ {
+	fmt.Println("id: " + categoriesObject[i].Id)
+	fmt.Println("nombre: " + categoriesObject[i].Name)
+    }
 
-	return categoriesObject
+    return categoriesObject
 
 }
 
 //https://api.mercadolibre.com/sites/MLA/search?category=MLA5726&sort=price_asc
 /*func GetArticles(categoriesId string, datos *Search, offset int) {
 
-	_url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&sort=price_asc&limit=200&offset=%d", categoriesId, offset)
+    _url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&sort=price_asc&limit=200&offset=%d", categoriesId, offset)
 
-	fmt.Println(_url)
+    fmt.Println(_url)
 
-	response, err := http.Get(_url)
-	if err != nil {
-		fmt.Print(err.Error())
-		os.Exit(1)
-	}
+    response, err := http.Get(_url)
+    if err != nil {
+	fmt.Print(err.Error())
+	os.Exit(1)
+    }
 
-	responseData, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
+    responseData, err := ioutil.ReadAll(response.Body)
+    if err != nil {
+	log.Fatal(err)
+    }
 
-	var tmpDatos Search
+    var tmpDatos Search
 
-	json.Unmarshal(responseData, &tmpDatos)
-	totalDatos := tmpDatos.Paginado.Total
+    json.Unmarshal(responseData, &tmpDatos)
+    totalDatos := tmpDatos.Paginado.Total
 
-	if datos == nil {
-		*datos = tmpDatos
-	}
+    if datos == nil {
+	*datos = tmpDatos
+    }
 
-	datos.Resultados = append(datos.Resultados, tmpDatos.Resultados...)
+    datos.Resultados = append(datos.Resultados, tmpDatos.Resultados...)
 
-	if offset > totalDatos {
-		return
-	}
+    if offset > totalDatos {
+	return
+    }
 
-	offset += 200
-	fmt.Println(len(datos.Resultados))
+    offset += 200
+    fmt.Println(len(datos.Resultados))
 
 }*/
 
 func AsyncGetArticles(wg *sync.WaitGroup, categoriesId string, datos chan Search, offset int, sortId string, req *http.Request) {
 
-	if wg != nil {
-		defer wg.Done()
-	}
-	_url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&limit=200&offset=%d&sort=%s", categoriesId, offset, sortId)
-	///////////////////////////////////////////////////////
-	//appEgine adapter
+    _url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&limit=200&offset=%d&sort=%s", categoriesId, offset, sortId)
+    ///////////////////////////////////////////////////////
+    //appEgine adapter
 
-	///	new parameter: req * http.Request
+    ///	new parameter: req * http.Request
 
-	ctx := appengine.NewContext(req)
-	client := urlfetch.Client(ctx)
-	response, err := client.Get(_url)
-	/////////////////////////////////////////////////
-	//old line	response, err := http.Get(_url)
+    ctx := appengine.NewContext(req)
+    ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 
-	if err != nil {
-		fmt.Print(err.Error())
-		os.Exit(1)
-	}
+    client := urlfetch.Client(ctx)
+    response, err := client.Get(_url)
+    /////////////////////////////////////////////////
+    //old line	response, err := http.Get(_url)
 
-	responseData, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
+    if err != nil {
+	log.Printf(err.Error())
+	//os.Exit(1)
+    }
 
-	var tmpDatos Search
+    responseData, err := ioutil.ReadAll(response.Body)
+    if err != nil {
+	log.Fatal(err)
+    }
 
-	json.Unmarshal(responseData, &tmpDatos)
-	totalDatos := tmpDatos.Paginado.Total
+    var tmpDatos Search
 
-	if offset > totalDatos {
-		return
-	}
+    json.Unmarshal(responseData, &tmpDatos)
+    totalDatos := tmpDatos.Paginado.Total
 
-	datos <- tmpDatos
+    if offset > totalDatos {
+	return
+    }
+
+    datos <- tmpDatos
+
+    if wg != nil {
+	defer func() {
+	    response.Body.Close()
+	    wg.Done()
+	    cancel()
+	}()
+    }
 
 }
 
 func GetPopulation(categoriesId string, req *http.Request) int {
 
-	_url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&sort=price_desc&limit=1", categoriesId)
+    _url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&sort=price_desc&limit=1", categoriesId)
 
-	///////////////////////////////////////////////////////
-	//appEgine adapter
+    ///////////////////////////////////////////////////////
+    //appEgine adapter
 
-	///	new parameter: req * http.Request
+    ///	new parameter: req * http.Request
 
-	ctx := appengine.NewContext(req)
-	client := urlfetch.Client(ctx)
-	response, err := client.Get(_url)
-	/////////////////////////////////////////////////
-	//old line:	response, err := http.Get(_url)
+    ctx := appengine.NewContext(req)
+    ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 
-	if err != nil {
-		fmt.Print(err.Error())
-		os.Exit(1)
-	}
+    client := urlfetch.Client(ctx)
+    response, err := client.Get(_url)
+    /////////////////////////////////////////////////
+    //old line:	response, err := http.Get(_url)
 
-	responseData, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
+    if err != nil {
+	log.Printf(err.Error())
+	return 0 //os.Exit(1)
+    }
 
-	var tmpDatos Search
+    responseData, err := ioutil.ReadAll(response.Body)
+    if err != nil {
+	log.Fatal(err)
+    }
 
-	json.Unmarshal(responseData, &tmpDatos)
+    var tmpDatos Search
 
-	totalDatos := tmpDatos.Paginado.Total
-	return totalDatos
+    json.Unmarshal(responseData, &tmpDatos)
+
+    totalDatos := tmpDatos.Paginado.Total
+
+    defer func() {
+	cancel()
+    }()
+
+    return totalDatos
 
 }
 
 func GetSampleLen(population int) int {
 
-	/* Formula con variable cuantitativa en poblacion conocida
-	   Utilizando como constantes:
-	   Z = 95% => 1.96 nivel de confianza
-	   e = 3% => 0.03 error estimado
-	   DevStan = 0.25 desviacion standard, valor utilizado ya que desconozco ese dato, por lo tanto se toma una postura conservadora
-	   N = tamaño total de la poblacion a estudiar
-	   n = tamaño de la muestra a estudiar
+    /* Formula con variable cuantitativa en poblacion conocida
+       Utilizando como constantes:
+       Z = 95% => 1.96 nivel de confianza
+       e = 3% => 0.03 error estimado
+       DevStan = 0.25 desviacion standard, valor utilizado ya que desconozco ese dato, por lo tanto se toma una postura conservadora
+       N = tamaño total de la poblacion a estudiar
+       n = tamaño de la muestra a estudiar
 
-	   n =     N . Z^2 . DevStan^2
-	   	   =============================
-		   (N-1) . e^2 . Z^2 . DevStan^2
+       n =     N . Z^2 . DevStan^2
+           =============================
+	   (N-1) . e^2 . Z^2 . DevStan^2
 
-	  N = population
+      N = population
 
-	*/
-	var N float32
-	const Z float32 = 1.96
-	const e float32 = 0.01
-	const DevStan float32 = 0.25
+    */
+    var N float32
+    const Z float32 = 1.96
+    const e float32 = 0.05
+    const DevStan float32 = 0.25
 
-	N = float32(population)
+    N = float32(population)
 
-	n := (N * (Z * Z) * (DevStan * DevStan)) / ((N - 1) * (e * e) * (Z * Z) * (DevStan * DevStan))
+    n := (N * (Z * Z) * (DevStan * DevStan)) / ((N - 1) * (e * e) * (Z * Z) * (DevStan * DevStan))
 
-	return int(n)
+    return int(n)
 
 }
 func Analize_data(categoriesId string, req *http.Request) (_respuesta ResponseAPI) {
 
-	var wg sync.WaitGroup
-	var done bool
-	var globalDatos Search
-	arDatos1 := make(chan Search)
+    var wg sync.WaitGroup
+    var done bool
+    var globalDatos Search
+    arDatos1 := make(chan Search)
 
-	//total de datos
-	total := GetPopulation(categoriesId, req)
-	//calcular el tamaño del muestro
-	total = GetSampleLen(total)
-	//dividir por el offset maximo de 200
-	total = total / 200
-	done = false
+    //total de datos
+    total := GetPopulation(categoriesId, req)
+    //calcular el tamaño del muestro
+    total = GetSampleLen(total)
+    //dividir por el offset maximo de 200
+    total = total / 200
+    done = false
 
-	//con este GET obtengo el muestreo con los precios mas altos
-	order := "price_desc"
-	var offsetAcum int = 0
+    //con este GET obtengo el muestreo con los precios mas altos
+    order := "price_desc"
+    var offsetAcum int = 0
+    wg.Add(1)
+    go AsyncGetArticles(&wg, categoriesId, arDatos1, offsetAcum, order, req)
+    //****************************
+
+    //empiezo e loop para procesar el resto de las muestras
+    //inicio con price_asc para tener los precios minimos
+    order = "price_asc"
+    for i := 0; i <= total; i++ {
+
 	wg.Add(1)
+	if i > (total / 2) {
+	    order = "price_desc"
+	}
+
 	go AsyncGetArticles(&wg, categoriesId, arDatos1, offsetAcum, order, req)
-	//****************************
+	offsetAcum += 200
 
-	//empiezo e loop para procesar el resto de las muestras
-	//inicio con price_asc para tener los precios minimos
-	order = "price_asc"
-	for i := 0; i <= total; i++ {
+	//fmt.Println(i, " de ", total)
 
-		wg.Add(1)
-		if i > (total / 2) {
-			order = "price_desc"
-		}
+    }
+    go monitorDonde(&wg, &done)
 
-		go AsyncGetArticles(&wg, categoriesId, arDatos1, offsetAcum, order, req)
-		offsetAcum += 200
+    for !done {
 
-		//fmt.Println(i, " de ", total)
+	tmpDatos := <-arDatos1
+	globalDatos.Resultados = append(globalDatos.Resultados, tmpDatos.Resultados...)
+	time.Sleep(time.Millisecond * 1)
+	//		fmt.Printf(" max: %.2f \n", maxPrice)
 
+    }
+
+    //debido a que el API de MELI no garantiza el resultado esperado por cada GET, tengo que validar el maximo
+    //ejemplo solicito 1 articulo con sortid: price_desc,el mismo get me devuelve 11111111 o 30
+    /*	if maxPrice < globalDatos.Resultados[len(globalDatos.Resultados)-1].Price {
+	    maxPrice = globalDatos.Resultados[len(globalDatos.Resultados)-1].Price
 	}
-	go monitorDonde(&wg, &done)
+    */
+    _max, _min, _mediana := GetEstadistics(globalDatos)
 
-	for !done {
+    _respuesta.Max, _ =  strconv.ParseFloat(big.NewFloat(_max).Text('f', 2),64) // _max
+    _respuesta.Min = _min
+    _respuesta.Seggested = _mediana
 
-		tmpDatos := <-arDatos1
-		globalDatos.Resultados = append(globalDatos.Resultados, tmpDatos.Resultados...)
-		time.Sleep(time.Millisecond * 1)
-		//		fmt.Printf(" max: %.2f \n", maxPrice)
+    //	fmt.Printf("maxPrice: %.2f \n", maxPrice)
+    fmt.Printf("max: %.2f \n", _max)
+    fmt.Printf("min: %.2f \n", _min)
+    fmt.Printf("mediana: %.2f \n", _mediana)
 
-	}
-
-	//debido a que el API de MELI no garantiza el resultado esperado por cada GET, tengo que validar el maximo
-	//ejemplo solicito 1 articulo con sortid: price_desc,el mismo get me devuelve 11111111 o 30
-	/*	if maxPrice < globalDatos.Resultados[len(globalDatos.Resultados)-1].Price {
-			maxPrice = globalDatos.Resultados[len(globalDatos.Resultados)-1].Price
-		}
-	*/
-	_max, _min, _mediana := GetEstadistics(globalDatos)
-
-	_respuesta.Max = _max
-	_respuesta.Min = _min
-	_respuesta.Seggested = _mediana
-
-	//	fmt.Printf("maxPrice: %.2f \n", maxPrice)
-	fmt.Printf("max: %.2f \n", _max)
-	fmt.Printf("min: %.2f \n", _min)
-	fmt.Printf("mediana: %.2f \n", _mediana)
-
-	return
+    return
 }
 
 func monitorDonde(wg *sync.WaitGroup, done *bool) {
-	wg.Wait()
-	*done = true
+    wg.Wait()
+    *done = true
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -266,31 +283,31 @@ func monitorDonde(wg *sync.WaitGroup, done *bool) {
 /*
 func GetPopulation(categoriesId string, req *http.Request) int {
 
-	//      _url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&sort=price_asc&limit=1", categoriesId)
-	_url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&sort=price_desc&limit=1", categoriesId)
+    //      _url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&sort=price_asc&limit=1", categoriesId)
+    _url := fmt.Sprintf("https://api.mercadolibre.com/sites/MLA/search?category=%s&sort=price_desc&limit=1", categoriesId)
 
-	//      fmt.Println(_url)
-	ctx := appengine.NewContext(req)
-	client := urlfetch.Client(ctx)
-	response, err := client.Get(_url)
+    //      fmt.Println(_url)
+    ctx := appengine.NewContext(req)
+    client := urlfetch.Client(ctx)
+    response, err := client.Get(_url)
 
-	//      response, err := http.Get(_url)
-	if err != nil {
-		fmt.Print(err.Error())
-		os.Exit(1)
-	}
+    //      response, err := http.Get(_url)
+    if err != nil {
+	fmt.Print(err.Error())
+	os.Exit(1)
+    }
 
-	responseData, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
+    responseData, err := ioutil.ReadAll(response.Body)
+    if err != nil {
+	log.Fatal(err)
+    }
 
-	var tmpDatos Search
+    var tmpDatos Search
 
-	json.Unmarshal(responseData, &tmpDatos)
+    json.Unmarshal(responseData, &tmpDatos)
 
-	totalDatos := tmpDatos.Paginado.Total
-	return totalDatos
+    totalDatos := tmpDatos.Paginado.Total
+    return totalDatos
 
 }
 */

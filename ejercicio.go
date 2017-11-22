@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mobilejavierg/mercadolibre/clientapi"
+	"github.com/mobilejavierg/clientapi"
 	"google.golang.org/appengine"
 )
 
