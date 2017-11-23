@@ -1,3 +1,7 @@
+// Autor: Javier Gonzalez
+// Fecha 20-11-2017
+// email: mobile.javierg@gmail.como
+
 package clientApi
 
 import (
@@ -34,6 +38,7 @@ type Search struct {
 	Resultados []Result `json:"results"`
 }
 
+// implemento estas funciones para poder ordenar un array struct
 func (s Search) Len() int {
 	return len(s.Resultados)
 }
@@ -55,21 +60,26 @@ func GetEstadistics(result Search) (max float64, min float64, mediada float64) {
 
 	var _acum float64
 
+	//////////////////////////////////////////
+	//recorro y analizo el resultado obtenido
+
 	_Min = result.Resultados[0].Price
 	_Max = result.Resultados[0].Price
-	//_Max = result.Resultados[len(result.Resultados)-1].Price
 
 	for i := 0; i <= len(result.Resultados)-1; i++ {
 
 		// tomo las muestras como valida, si vendieron aunque sea un articulo
 		// ya que hay publicaciones con valores irrales, por ejemplo: 111111111.11, o 123456789.00
 		if result.Resultados[i].Sold_quantity > 0 {
+
 			_acum += result.Resultados[i].Price
 
+			//guardo el menor
 			if _Min > result.Resultados[i].Price {
 				_Min = result.Resultados[i].Price
 			}
 
+			//guardo el mayor
 			if _Max < result.Resultados[i].Price {
 				_Max = result.Resultados[i].Price
 			}
@@ -78,6 +88,7 @@ func GetEstadistics(result Search) (max float64, min float64, mediada float64) {
 
 	}
 
+	//obtengo la media aritmetica
 	_Media = _acum / float64(len(result.Resultados))
 
 	return _Max, _Min, _Media

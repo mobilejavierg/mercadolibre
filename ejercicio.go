@@ -1,3 +1,7 @@
+// Autor: Javier Gonzalez
+// Fecha 20-11-2017
+// email: mobile.javierg@gmail.como
+
 package main
 
 import (
@@ -8,6 +12,7 @@ import (
 	"google.golang.org/appengine"
 )
 
+//funcion init requerida por appengine
 func init() {
 
 	r := gin.New()
@@ -20,19 +25,21 @@ func init() {
 	http.Handle("/", r)
 
 	//r.run genera conflictos con appengine
-	//r.Run(":80")
-	//appengine.Main()
+	//r.Run(":8080")
 }
 
 func main() {
+	//requerido por appengine
 	appengine.Main()
 }
 
+//proceso el GET del APIRest
 func getPrices(c *gin.Context) {
 
+	//obtengo el ID de la Categoria
 	id := c.Params.ByName("id")
 
-	//debo enviar el objeto Request por requerimientos del appengine, al realizar GET's
+	//debo enviar el objeto "c.Request" por requerimientos del appengine, al realizar GET's a una URL externa
 	resp := clientApi.Analize_data(id, c.Request)
 	c.JSON(200, resp)
 
