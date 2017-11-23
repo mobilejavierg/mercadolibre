@@ -17,7 +17,12 @@ Utilice gin-gonic para rutear los get’s, donde surgió las 2da situación hab�
 La siguiente situación fue el conflicto generado por appengine con los Get “externos” hacia las api’s de mercadolibre, tuve que utilizar el modulo "google.golang.org/appengine/urlfetch" y hacer burbujear el http.request desde gin-gonic hacia las funciones asincrónicas donde consumo las apis.
 
 Consumir el API de obtener artículos por categoría es muy costoso en tiempos, tuve modificar el context generado alargando el time out:
+
 ctx := appengine.NewContext(req)
+
 ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 
-Al aplicas la formula de Muestro Aleatorio Simple, tuve que subir la tasa de error al 5%, para asi poder dismunir la cantidad de articulos a analizar.
+Al aplicar la formula de Muestro Aleatorio Simple, tuve que subir la tasa de error al 5%, para asi poder dismunir la cantidad de articulos a analizar, para bajar la latencia en la respuesta.
+
+##Mejoresas
+- Guardaria todos los datos en una base de datos, para poder analizar los datos offline y mejorar la velocidad de respuesta, ya que actualmente analiza los datos en forma "on the fly".
