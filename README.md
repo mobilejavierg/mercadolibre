@@ -1,33 +1,23 @@
 # Mercadolibre - Golang
 
-Ejercicio Integrador - Sugeridor de precios
+enunciado [aqui](https://github.com/mobilejavierg/mercadolibre/blob/master/enunciado.md)
 
-En Meli todo los días miles de usuarios realizan millones de publicaciones y uno de los 
-principales desafíos a los que se enfrentan al crear su publicación es entender cuál sería el 
-precio ideal para su producto. Un precio alto sería poco competitivo, un precio bajo reduce 
-sus ganancias. Tu desafío como nuevo Golang developer en nuestro team es facilitarle la 
-toma de esta decisión creando una API que le sugiera el precio ideal para su producto. 
+Se debe analizar el precio de los artículos para una categoría, como es muy costoso analizar todo, utilice el método de Muestreo Aleatorio Simple para determinar el tamaño de los datos, y así poder calcular la media aritmética. Al momento de analizar el precio de los artículos tuve que tener en cuenta el atributo Sold_quantity>0 (al menos un artículo vendido) ya que había muchas publicaciones con valores irreales.
 
-Detalles: 
- 
-- Crear una api REST en Golang ;) que retorne para una determinada categoría de 
-productos un JSON como respuesta con el siguiente formato: 
- 
-{ 
-   "max":10, 
-   "suggested":5, 
-   "min":1 
-} 
- 
-sobre el siguiente recurso: 
- 
-/categories/$ID/prices 
- 
-ejemplo: 
- 
-curl -X GET “http://mydomain.com/categories/MLA3530/prices” 
- 
-- Realizar test (white/black box test) y benchmark del servicio, recuerden probar 
-concurrencia! Una cobertura mayor al 80% del código es aceptable ;) 
-- Hostear el código a un repo git y la API en un Cloud Computing público. 
- 
+Este ejercicio sirvió para practicar los temas hablados en el curso y tomar como desafío aprender un nuevo lenguaje.
+
+Para poder analizar más rápido los artículos tuve que utilizar goroutines, aprovechando las bondades de la “concurrencia” y/o “paralelismo” que ofrece este lenguaje moderno, así como también el uso de channels para acumular los resultados y wait group que me sirvió para la sincronización.
+
+A parte de Golang otro mundo nuevo fue implementar la solución en Google Cloud, ya que tuve refactorizar el código para adaptar la solución al appengine.
+
+La primer situación surgió en agregar el módulo de "google.golang.org/appengine" y modificar mi func main(), agregando init().
+
+Utilice gin-gonic para rutear los get’s, donde surgió las 2da situación había conflicto con el Listening Port ya que estaba siendo utilizada por gapp. Se solucionó vinculando gin con net/http y acoplándome al handle de appengine “http.Handle("/", r)”
+
+La siguiente situación fue el conflicto generado por appengine con los Get “externos” hacia las api’s de mercadolibre, tuve que utilizar el modulo "google.golang.org/appengine/urlfetch" y hacer burbujear el http.request desde gin-gonic hacia las funciones asincrónicas donde consumo las apis.
+
+Consumir el API de obtener artículos por categoría es muy costoso en tiempos, tuve modificar el context generado alargando el time out:
+ctx := appengine.NewContext(req)
+ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+
+Al aplicas la formula de Muestro Aleatorio Simple, tuve que subir la tasa de error al 5%, para asi poder dismunir la cantidad de articulos a analizar.
